@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, Star, Award, BookOpen, CheckCircle, Play, HelpCircle, ArrowRight, Lock, AlertCircle } from 'lucide-react';
+import { Trophy, Star, Award, BookOpen, CheckCircle, Play, HelpCircle, ArrowRight, Lock, AlertCircle, Target } from 'lucide-react';
 import { Lesson, UserProgress } from './types';
 import { LEARNING_MODULES } from './data';
 
@@ -22,6 +22,49 @@ const LearningDashboard: React.FC<LearningDashboardProps> = ({ onSelectLesson, p
 
   return (
     <div className="container mx-auto p-4 max-w-4xl pb-24 relative">
+      {/* Progress Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* XP Card */}
+        <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold font-bengali mb-1">মোট পয়েন্ট</h3>
+              <p className="text-2xl font-bold">{progress.totalXP}</p>
+              <p className="text-amber-100 text-sm font-bengali">XP</p>
+            </div>
+            <Trophy size={40} className="text-amber-200" />
+          </div>
+        </div>
+        
+        {/* Completed Lessons */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold font-bengali mb-1">সম্পন্ত পাঠ</h3>
+              <p className="text-2xl font-bold">{progress.completedLessons.length}</p>
+              <p className="text-emerald-100 text-sm font-bengali">{allLessons.length} এর মধ্যে</p>
+            </div>
+            <CheckCircle size={40} className="text-emerald-200" fill="currentColor" />
+          </div>
+        </div>
+        
+        {/* Goals Button */}
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('openGoals'))}
+          className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-2xl p-6 text-white hover:shadow-lg transition-all transform hover:scale-[1.02] text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold font-bengali mb-1">দৈনিক লক্ষ্য</h3>
+              <p className="text-sm font-bengali text-purple-100 leading-tight">
+                আজকের অগ্রগতি দেখুন
+              </p>
+            </div>
+            <Target size={40} className="text-purple-200" />
+          </div>
+        </button>
+      </div>
+
       {/* Toast Notification */}
       {toastMessage && (
           <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 animate-in slide-in-from-top-5 fade-in duration-300">

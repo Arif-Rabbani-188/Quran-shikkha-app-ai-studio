@@ -48,6 +48,7 @@ class GlobalAudioManager {
   private currentAudio: HTMLAudioElement | null = null;
   private currentUrl: string | null = null;
   private listeners: Set<(isPlaying: boolean, url: string | null) => void> = new Set();
+  private endedListeners: Set<(url: string) => void> = new Set();
 
   addListener(callback: (isPlaying: boolean, url: string | null) => void) {
     this.listeners.add(callback);
@@ -57,8 +58,20 @@ class GlobalAudioManager {
     this.listeners.delete(callback);
   }
 
+  addEndedListener(callback: (url: string) => void) {
+    this.endedListeners.add(callback);
+  }
+
+  removeEndedListener(callback: (url: string) => void) {
+    this.endedListeners.delete(callback);
+  }
+
   private notifyListeners(isPlaying: boolean, url: string | null) {
     this.listeners.forEach(callback => callback(isPlaying, url));
+  }
+
+  private notifyEndedListeners(url: string) {
+    this.endedListeners.forEach(callback => callback(url));
   }
 
   play(url: string): Promise<void> {
@@ -81,6 +94,7 @@ class GlobalAudioManager {
 
     audio.addEventListener('ended', () => {
       this.notifyListeners(false, null);
+      this.notifyEndedListeners(url);
     });
 
     audio.addEventListener('pause', () => {
@@ -109,9 +123,16 @@ class GlobalAudioManager {
   isPlaying(url: string): boolean {
     return this.currentUrl === url && this.currentAudio && !this.currentAudio.paused;
   }
+
+  getCurrentUrl(): string | null {
+    return this.currentUrl;
+  }
 }
 
 const globalAudioManager = new GlobalAudioManager();
+
+// Export for external use
+export { globalAudioManager };
 
 // --- Custom Hooks ---
 
@@ -158,6 +179,57 @@ export function useAudio(url: string | undefined) {
   };
 
   return { isPlaying, toggle, error };
+}
+
+export function useAutoPlay(verseUrls: string[], onAutoPlayNext?: (verseIndex: number) => void) {
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
+
+  useEffect(() => {
+    // Get autoPlay setting from user preferences
+    const userProfile = localStorage.getItem('user_profile');
+    if (userProfile) {
+      try {
+        const profile = JSON.parse(userProfile);
+        setAutoPlayEnabled(profile.preferences?.autoPlay !== false);
+      } catch (e) {
+        console.error('Error reading user preferences:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autoPlayEnabled || verseUrls.length === 0) return;
+
+    const handleAudioEnded = (endedUrl: string) => {
+      // Find the current verse index and play next
+      const currentIndex = verseUrls.indexOf(endedUrl);
+      const nextIndex = currentIndex + 1;
+      
+      if (nextIndex < verseUrls.length) {
+        const nextUrl = verseUrls[nextIndex];
+        
+        // Notify parent component about auto-play progression
+        if (onAutoPlayNext) {
+          onAutoPlayNext(nextIndex);
+        }
+        
+        // Auto-play next verse after a short delay
+        setTimeout(() => {
+          globalAudioManager.play(nextUrl).catch(e => {
+            console.error('Auto-play failed:', e);
+          });
+        }, 500); // 500ms delay between verses
+      }
+    };
+
+    globalAudioManager.addEndedListener(handleAudioEnded);
+
+    return () => {
+      globalAudioManager.removeEndedListener(handleAudioEnded);
+    };
+  }, [verseUrls, autoPlayEnabled, onAutoPlayNext]);
+
+  return { autoPlayEnabled };
 }
 
 export function useProgress() {

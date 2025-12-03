@@ -49,12 +49,52 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
 
   const lastReadSurah = lastReadSurahId ? surahs.find(s => s.id === lastReadSurahId) : null;
 
+  const totalSurahs = surahs.length;
+  const readSurahs = surahs.filter(s => s.id <= (lastReadSurahId || 0)).length;
+  const progressPercentage = totalSurahs > 0 ? Math.round((readSurahs / totalSurahs) * 100) : 0;
+
   return (
     <div className="container mx-auto p-4 max-w-4xl pb-24">
+      {/* Quick Actions Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {lastReadSurah && (
+          <div 
+            onClick={() => onSelect(lastReadSurah)}
+            className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white cursor-pointer transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl col-span-1 md:col-span-2">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold font-bengali">পড়া চালিয়ে যান</h3>
+              <div className="text-white/80 text-sm">📖</div>
+            </div>
+            <p className="font-arabic text-xl mb-2">{lastReadSurah.name_arabic}</p>
+            <p className="text-emerald-100 font-bengali">{lastReadSurah.translated_name.name}</p>
+            <div className="mt-4 bg-white/20 rounded-full h-2">
+              <div 
+                className="bg-white rounded-full h-2 transition-all duration-500" 
+                style={{width: `${progressPercentage}%`}}
+              />
+            </div>
+            <p className="text-xs text-emerald-100 mt-1">{progressPercentage}% সম্পন্ন</p>
+          </div>
+        )}
+        
+        {/* Reading Stats Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-200 dark:border-slate-800 shadow-sm">
+          <div className="text-center">
+            <div className="text-2xl mb-2">📊</div>
+            <h3 className="font-bold text-gray-800 dark:text-white font-bengali mb-2">পড়ার পরিসংখ্যান</h3>
+            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+              <p>{readSurahs} টি সূরা পড়া হয়েছে</p>
+              <p>{totalSurahs - readSurahs} টি বাকি</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Continue Reading Section (legacy support) */}
       {lastReadSurah && !search && (
           <div 
             onClick={() => onSelect(lastReadSurah)}
-            className="mb-8 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-lg cursor-pointer transform hover:scale-[1.01] transition-all relative overflow-hidden"
+            className="hidden bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 mb-6 text-white cursor-pointer transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
           >
               <div className="absolute top-0 right-0 p-6 opacity-10">
                   <BookOpen size={120} />

@@ -10,23 +10,49 @@ interface VerseItemProps {
   isBookmarked: boolean;
   onToggleBookmark: () => void;
   id?: string;
+  audioUrl?: string;
+  autoPlayEnabled?: boolean;
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 const toArabicNumerals = (n: number) => {
   return n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
 }
 
-const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookmarked, onToggleBookmark, id }) => {
+const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookmarked, onToggleBookmark, id, audioUrl, autoPlayEnabled = false, onPlayStateChange }) => {
   const verseKeyParts = verse.verse_key.split(':');
   const surahPad = String(verseKeyParts[0]).padStart(3, '0');
   const ayahPad = String(verseKeyParts[1]).padStart(3, '0');
   const verseNumber = parseInt(verseKeyParts[1]);
-  // Audio source: EveryAyah (Alafasy)
-  const audioUrl = `https://everyayah.com/data/Alafasy_128kbps/${surahPad}${ayahPad}.mp3`;
   
-  const { isPlaying, toggle, error: audioError } = useAudio(audioUrl);
+  // Use provided audioUrl or generate it
+  const verseAudioUrl = audioUrl || `https://everyayah.com/data/Alafasy_128kbps/${surahPad}${ayahPad}.mp3`;
+  
+  const { isPlaying, toggle, error: audioError } = useAudio(verseAudioUrl);
+  
+  // Notify parent when play state changes
+  React.useEffect(() => {
+    if (onPlayStateChange) {
+      onPlayStateChange(isPlaying);
+    }
+  }, [isPlaying, onPlayStateChange]);
   const [showTafsir, setShowTafsir] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Auto-highlight verse during playback
+  React.useEffect(() => {
+    if (isPlaying && id) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.classList.add('bg-emerald-50', 'dark:bg-emerald-900/20', 'ring-2', 'ring-emerald-200', 'dark:ring-emerald-800');
+      }
+    } else if (id) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.classList.remove('bg-emerald-50', 'dark:bg-emerald-900/20', 'ring-2', 'ring-emerald-200', 'dark:ring-emerald-800');
+      }
+    }
+  }, [isPlaying, id]);
 
   // Extract Translation (Bengali - 161), Transliteration (131), and English (20)
   const translationText = verse.translations.find(t => t.resource_id === 161)?.text.replace(/<[^>]*>?/gm, '') || "অনুবাদ উপলব্ধ নেই";
@@ -38,6 +64,11 @@ const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookma
   }
 
   const handleShare = async () => {
+    // Haptic feedback for mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+    
     const shareText = `
 ${verse.text_uthmani}
 (সূরা ${verseKeyParts[0]}, আয়াত ${verseKeyParts[1]})
@@ -76,17 +107,26 @@ English Translation: ${englishTranslationText}
         {/* Controls */}
         <div className="flex flex-row md:flex-col gap-3 mt-2 md:mt-0 shrink-0">
           <div className="flex gap-2">
-            <button 
-                onClick={toggle}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm ${
-                isPlaying 
-                    ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-none scale-110' 
-                    : 'bg-emerald-50 dark:bg-slate-800 text-emerald-700 dark:text-teal-400 hover:bg-emerald-100 dark:hover:bg-slate-700'
-                }`}
-                title="Play Audio"
-            >
-                {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-            </button>
+            <div className="relative">
+              <button 
+                  onClick={toggle}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow-md active:scale-95 ${
+                  isPlaying 
+                      ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-none scale-110' 
+                      : 'bg-emerald-50 dark:bg-slate-800 text-emerald-700 dark:text-teal-400 hover:bg-emerald-100 dark:hover:bg-slate-700'
+                  }`}
+                  title="Play Audio"
+              >
+                  {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+              </button>
+              
+              {/* Auto-play indicator - only show when this verse is playing */}
+              {autoPlayEnabled && isPlaying && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                </div>
+              )}
+            </div>
             
             <div className="w-10 h-10 rounded-full border border-gray-200 dark:border-slate-700 flex items-center justify-center text-xs font-semibold text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-900">
                 {verse.verse_key}
@@ -95,8 +135,11 @@ English Translation: ${englishTranslationText}
           
           <div className="flex gap-2">
             <button 
-                onClick={onToggleBookmark}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                onClick={() => {
+                  if (navigator.vibrate) navigator.vibrate(30);
+                  onToggleBookmark();
+                }}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-md active:scale-95 ${
                     isBookmarked
                     ? 'text-yellow-500 hover:text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
                     : 'text-gray-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-gray-100 dark:hover:bg-slate-800'
@@ -108,7 +151,7 @@ English Translation: ${englishTranslationText}
 
             <button 
                 onClick={handleShare}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:shadow-md active:scale-95 ${
                     copied
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
                     : 'text-gray-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-gray-100 dark:hover:bg-slate-800'
