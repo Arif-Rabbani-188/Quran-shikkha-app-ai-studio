@@ -155,7 +155,7 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId, lastRe
           {filteredSurahs.map((surah) => (
             <div 
               key={surah.id}
-              onClick={() => onSelect(surah)}
+              onClick={() => onSelect(surah, surah.id === lastReadSurahId ? lastReadVerseKey : undefined)}
               className={`bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border transition-all cursor-pointer group flex items-center justify-between ${
                 surah.id === lastReadSurahId 
                   ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 ring-2 ring-emerald-200 dark:ring-emerald-800' 

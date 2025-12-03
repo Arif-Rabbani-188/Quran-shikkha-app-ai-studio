@@ -154,7 +154,7 @@ const App = () => {
 
   const renderContent = () => {
     if (view === 'bookmarks') {
-        return <BookmarksView bookmarks={progress.bookmarks} onSelect={handleBookmarkSelect} />;
+        return <BookmarksView bookmarks={progress.bookmarks} onSelect={handleBookmarkSelect} onToggleBookmark={toggleBookmark} />;
     }
 
     if (view === 'goals') {
