@@ -48,4 +48,8 @@ export interface UserProgress {
   lastReadSurahId?: number;
   lastReadVerseKey?: string; // Track exact verse position for continue reading
   bookmarks: string[]; // verse_keys
+  totalAyahsRead: number; // Total ayahs read based on markers
+  totalTimeSpent: number; // Total time spent in app (minutes)
+  dailySessions: { [date: string]: { timeSpent: number; ayahsRead: number; lastActive: number } };
+  readingHistory: string[]; // Array of verse keys that have been read (marked)
 }

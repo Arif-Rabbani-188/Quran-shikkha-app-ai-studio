@@ -238,8 +238,68 @@ export function useProgress() {
     totalXP: 0,
     bookmarks: [],
     lastReadSurahId: undefined,
-    lastReadVerseKey: undefined
+    lastReadVerseKey: undefined,
+    totalAyahsRead: 0,
+    totalTimeSpent: 0,
+    dailySessions: {},
+    readingHistory: []
   });
+
+  // Track time spent in app
+  useEffect(() => {
+    let startTime = Date.now();
+    let sessionStartTime = Date.now();
+    
+    const trackTime = () => {
+      const now = Date.now();
+      const sessionTime = Math.floor((now - sessionStartTime) / 1000 / 60); // minutes
+      const today = new Date().toDateString();
+      
+      if (sessionTime > 0) {
+        const updatedProgress = {
+          ...progress,
+          totalTimeSpent: progress.totalTimeSpent + sessionTime,
+          dailySessions: {
+            ...progress.dailySessions,
+            [today]: {
+              timeSpent: (progress.dailySessions[today]?.timeSpent || 0) + sessionTime,
+              ayahsRead: progress.dailySessions[today]?.ayahsRead || 0,
+              lastActive: now
+            }
+          }
+        };
+        setProgress(updatedProgress);
+        localStorage.setItem('quran_learning_progress', JSON.stringify(updatedProgress));
+      }
+      sessionStartTime = now;
+    };
+
+    // Track time every minute
+    const timeInterval = setInterval(trackTime, 60000);
+    
+    // Track time on page visibility change and beforeunload
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        trackTime();
+      } else {
+        sessionStartTime = Date.now();
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      trackTime();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      trackTime();
+      clearInterval(timeInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [progress]);
 
   useEffect(() => {
     const saved = localStorage.getItem('quran_learning_progress');
@@ -248,13 +308,21 @@ export function useProgress() {
       // Ensure new fields exist for legacy data
       if (!parsed.bookmarks) parsed.bookmarks = [];
       if (!parsed.lastReadVerseKey) parsed.lastReadVerseKey = undefined;
+      if (typeof parsed.totalAyahsRead !== 'number') parsed.totalAyahsRead = 0;
+      if (typeof parsed.totalTimeSpent !== 'number') parsed.totalTimeSpent = 0;
+      if (!parsed.dailySessions) parsed.dailySessions = {};
+      if (!parsed.readingHistory) parsed.readingHistory = [];
       setProgress(parsed);
     }
   }, []);
 
   const saveProgress = (newProgress: UserProgress) => {
+    // Ensure lastReadSurahId is always derived from lastReadVerseKey
+    if (newProgress.lastReadVerseKey && !newProgress.lastReadSurahId) {
+      newProgress.lastReadSurahId = parseInt(newProgress.lastReadVerseKey.split(':')[0]);
+    }
     setProgress(newProgress);
-    localStorage.setItem('quran_learning_progress', JSON.stringify(newProgress));
+    localStorage.setItem('quranProgress', JSON.stringify(newProgress));
   };
 
   const completeLesson = (lessonId: string, xp: number) => {
@@ -288,12 +356,38 @@ export function useProgress() {
 
   const setLastReadPosition = (verseKey: string) => {
     const [surahId] = verseKey.split(':').map(Number);
+    const today = new Date().toDateString();
+    
+    // Track as read if not already in history
+    let newReadingHistory = [...progress.readingHistory];
+    let newTotalAyahsRead = progress.totalAyahsRead;
+    let dailySessions = { ...progress.dailySessions };
+    
+    if (!newReadingHistory.includes(verseKey)) {
+      newReadingHistory.push(verseKey);
+      newTotalAyahsRead += 1;
+      
+      // Update daily session ayah count
+      if (!dailySessions[today]) {
+        dailySessions[today] = { timeSpent: 0, ayahsRead: 0, lastActive: Date.now() };
+      }
+      dailySessions[today].ayahsRead += 1;
+      dailySessions[today].lastActive = Date.now();
+    }
+    
     saveProgress({ 
       ...progress, 
       lastReadSurahId: surahId,
-      lastReadVerseKey: verseKey
+      lastReadVerseKey: verseKey,
+      totalAyahsRead: newTotalAyahsRead,
+      readingHistory: newReadingHistory,
+      dailySessions: dailySessions
     });
   };
 
-  return { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition };
+  const markAyahAsRead = (verseKey: string) => {
+    setLastReadPosition(verseKey);
+  };
+
+  return { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition, markAyahAsRead };
 }

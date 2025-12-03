@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, Clock, BookOpen, Target, Calendar, TrendingUp, Award, Flame } from 'lucide-react';
 
 interface ReadingStatsProps {
-  userProgress: any;
+  userProgress: {
+    totalAyahsRead: number;
+    totalTimeSpent: number;
+    dailySessions: { [date: string]: { timeSpent: number; ayahsRead: number; lastActive: number } };
+    readingHistory: string[];
+    bookmarks: string[];
+    lastReadVerseKey?: string;
+  };
 }
 
 interface ReadingSession {
@@ -53,26 +60,21 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     
-    const recentSessions = sessions.filter(session => 
-      new Date(session.date) >= weekAgo
-    );
+    // Use the new dailySessions data
+    const weeklyData = Object.entries(userProgress.dailySessions)
+      .filter(([dateStr]) => new Date(dateStr) >= weekAgo)
+      .map(([date, session]) => ({ date, ...session }));
 
-    const totalTime = recentSessions.reduce((sum, session) => sum + session.duration, 0);
-    const totalVerses = recentSessions.reduce((sum, session) => sum + session.versesRead, 0);
-    const averageSession = recentSessions.length > 0 ? Math.round(totalTime / recentSessions.length) : 0;
+    const totalTime = weeklyData.reduce((sum, session) => sum + session.timeSpent, 0);
+    const totalVerses = weeklyData.reduce((sum, session) => sum + session.ayahsRead, 0);
+    const averageSession = weeklyData.length > 0 ? Math.round(totalTime / weeklyData.length) : 0;
 
-    // Calculate streak
+    // Calculate streak from dailySessions
     const currentStreak = calculateCurrentStreak();
     const longestStreak = calculateLongestStreak();
 
-    // Find favorite time
-    const timePreferences = recentSessions.reduce((acc, session) => {
-      acc[session.timeOfDay] = (acc[session.timeOfDay] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const favoriteTime = Object.entries(timePreferences)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'evening';
+    // Find favorite time based on session activity
+    const favoriteTime = getFavoriteReadingTime();
 
     setWeeklyStats({
       totalTime,
@@ -85,23 +87,28 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
   };
 
   const calculateCurrentStreak = () => {
-    // Calculate consecutive days of reading
-    const today = new Date().toDateString();
+    // Calculate consecutive days of reading from dailySessions
+    const today = new Date();
     let streak = 0;
-    let currentDate = new Date();
+    let currentDate = new Date(today);
 
     while (true) {
       const dateStr = currentDate.toDateString();
-      const hasReadingToday = sessions.some(session => 
-        new Date(session.date).toDateString() === dateStr
-      );
+      const hasReadingToday = userProgress.dailySessions[dateStr]?.ayahsRead > 0;
 
       if (hasReadingToday) {
         streak++;
         currentDate.setDate(currentDate.getDate() - 1);
-      } else if (dateStr === today) {
-        // If today has no reading, streak is 0
-        return 0;
+      } else if (dateStr === today.toDateString()) {
+        // If today has no reading, check if it's still early in the day
+        const now = new Date();
+        if (now.getHours() < 6) {
+          // Before 6 AM, don't break streak yet
+          currentDate.setDate(currentDate.getDate() - 1);
+          continue;
+        } else {
+          return 0;
+        }
       } else {
         break;
       }
@@ -111,19 +118,18 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
   };
 
   const calculateLongestStreak = () => {
-    // Find longest consecutive reading streak
-    const sortedSessions = sessions
-      .map(s => new Date(s.date).toDateString())
-      .filter((date, index, arr) => arr.indexOf(date) === index)
-      .sort();
+    // Find longest consecutive reading streak from dailySessions
+    const sortedDates = Object.keys(userProgress.dailySessions)
+      .filter(date => userProgress.dailySessions[date].ayahsRead > 0)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     let maxStreak = 0;
     let currentStreak = 1;
 
-    for (let i = 1; i < sortedSessions.length; i++) {
-      const prevDate = new Date(sortedSessions[i - 1]);
-      const currDate = new Date(sortedSessions[i]);
-      const diffDays = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
+    for (let i = 1; i < sortedDates.length; i++) {
+      const prevDate = new Date(sortedDates[i - 1]);
+      const currDate = new Date(sortedDates[i]);
+      const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
         currentStreak++;
@@ -134,6 +140,24 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
     }
 
     return Math.max(maxStreak, currentStreak);
+  };
+
+  const getFavoriteReadingTime = () => {
+    // Determine favorite time based on when most reading activity happens
+    const timePreferences = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    
+    Object.values(userProgress.dailySessions).forEach(session => {
+      if (session.ayahsRead > 0) {
+        const hour = new Date(session.lastActive).getHours();
+        if (hour >= 5 && hour < 12) timePreferences.morning += session.ayahsRead;
+        else if (hour >= 12 && hour < 17) timePreferences.afternoon += session.ayahsRead;
+        else if (hour >= 17 && hour < 21) timePreferences.evening += session.ayahsRead;
+        else timePreferences.night += session.ayahsRead;
+      }
+    });
+
+    return Object.entries(timePreferences)
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'evening';
   };
 
   const getTimeOfDayLabel = (time: string) => {
@@ -163,16 +187,16 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dayName = days[date.getDay()];
+      const dateStr = date.toDateString();
       
-      const daysSessions = sessions.filter(session => 
-        new Date(session.date).toDateString() === date.toDateString()
-      );
-
-      const totalMinutes = daysSessions.reduce((sum, session) => sum + session.duration, 0);
+      const daySession = userProgress.dailySessions[dateStr];
+      const totalMinutes = daySession?.timeSpent || 0;
+      const ayahsRead = daySession?.ayahsRead || 0;
       
       weekData.push({
         day: dayName,
         minutes: totalMinutes,
+        ayahs: ayahsRead,
         height: Math.max((totalMinutes / 60) * 100, 5) // Convert to percentage height
       });
     }
@@ -209,16 +233,17 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
             <Clock size={24} className="text-blue-200" />
             <span className="text-blue-100 text-sm font-bengali">মোট সময়</span>
           </div>
-          <p className="text-2xl font-bold">{formatDuration(weeklyStats.totalTime)}</p>
+          <p className="text-2xl font-bold">{formatDuration(userProgress.totalTimeSpent)}</p>
+          <p className="text-blue-100 text-xs font-bengali">সর্বমোট</p>
         </div>
 
-        {/* Total Verses */}
+        {/* Total Ayahs Read */}
         <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <BookOpen size={24} className="text-emerald-200" />
             <span className="text-emerald-100 text-sm font-bengali">আয়াত</span>
           </div>
-          <p className="text-2xl font-bold">{weeklyStats.totalVerses}</p>
+          <p className="text-2xl font-bold">{userProgress.totalAyahsRead}</p>
           <p className="text-emerald-100 text-xs font-bengali">পড়া হয়েছে</p>
         </div>
 
@@ -232,14 +257,14 @@ const ReadingStatistics: React.FC<ReadingStatsProps> = ({ userProgress }) => {
           <p className="text-orange-100 text-xs font-bengali">দিন একটানা</p>
         </div>
 
-        {/* Average Session */}
+        {/* Weekly Ayahs */}
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
           <div className="flex items-center justify-between mb-2">
             <BarChart3 size={24} className="text-purple-200" />
-            <span className="text-purple-100 text-sm font-bengali">গড় সময়</span>
+            <span className="text-purple-100 text-sm font-bengali">এ সপ্তাহে</span>
           </div>
-          <p className="text-2xl font-bold">{weeklyStats.averageSession}</p>
-          <p className="text-purple-100 text-xs font-bengali">মিনিট/সেশন</p>
+          <p className="text-2xl font-bold">{weeklyStats.totalVerses}</p>
+          <p className="text-purple-100 text-xs font-bengali">আয়াত পড়েছেন</p>
         </div>
       </div>
 

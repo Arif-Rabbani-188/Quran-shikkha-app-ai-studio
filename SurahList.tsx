@@ -71,8 +71,7 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId, lastRe
               <h3 className="text-lg font-bold font-bengali">পড়া চালিয়ে যান</h3>
               <div className="text-white/80 text-sm">📖</div>
             </div>
-            <p className="font-arabic text-xl mb-2">{lastReadSurah.name_arabic}</p>
-            <p className="text-emerald-100 font-bengali">{lastReadSurah.translated_name.name}</p>
+            <p className="font-arabic text-xl mb-2">{lastReadSurah.name_simple}</p>
             
             {/* Last Read Position Info */}
             {lastReadVerseKey && (
@@ -83,19 +82,19 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId, lastRe
                     <span className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                       আয়াত {lastReadVerseKey.split(':')[1]}
                     </span>
-                    <span className="text-xs text-emerald-100 font-bengali">থেকে চালিয়ে যান</span>
+                    <span className="text-xs text-emerald-100 font-bengali">থেকে শুরু করুন</span>
                   </div>
                 </div>
               </div>
             )}
             
-            <div className="mt-4 bg-white/20 rounded-full h-2">
+            {/* <div className="mt-4 bg-white/20 rounded-full h-2">
               <div 
                 className="bg-white rounded-full h-2 transition-all duration-500" 
                 style={{width: `${progressPercentage}%`}}
               />
             </div>
-            <p className="text-xs text-emerald-100 mt-1">{progressPercentage}% সম্পন্ন</p>
+            <p className="text-xs text-emerald-100 mt-1">{progressPercentage}% সম্পন্ন</p> */}
           </div>
         )}
         
@@ -157,14 +156,37 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId, lastRe
             <div 
               key={surah.id}
               onClick={() => onSelect(surah)}
-              className="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 hover:shadow-md hover:border-emerald-200 dark:hover:border-teal-900 transition-all cursor-pointer group flex items-center justify-between"
+              className={`bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border transition-all cursor-pointer group flex items-center justify-between ${
+                surah.id === lastReadSurahId 
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 ring-2 ring-emerald-200 dark:ring-emerald-800' 
+                  : 'border-gray-100 dark:border-slate-800 hover:shadow-md hover:border-emerald-200 dark:hover:border-teal-900'
+              }`}
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg flex items-center justify-center font-bold text-sm transform rotate-45 group-hover:rotate-0 transition-transform duration-300">
-                    <span className="-rotate-45 group-hover:rotate-0 transition-transform duration-300">{surah.id}</span>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transform rotate-45 group-hover:rotate-0 transition-transform duration-300 ${
+                  surah.id === lastReadSurahId
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                }`}>
+                    <span className="-rotate-45 group-hover:rotate-0 transition-transform duration-300">
+                      {surah.id === lastReadSurahId ? '📍' : surah.id}
+                    </span>
                 </div>
                 <div>
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-teal-400 transition-colors font-bengali">{surah.name_simple}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`font-semibold transition-colors font-bengali ${
+                        surah.id === lastReadSurahId
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-teal-400'
+                      }`}>
+                        {surah.name_simple}
+                      </h3>
+                      {surah.id === lastReadSurahId && (
+                        <span className="text-xs px-2 py-1 bg-emerald-500 text-white rounded-full font-bengali animate-pulse">
+                          শেষ পড়া
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{surah.translated_name.name}</p>
                 </div>
               </div>

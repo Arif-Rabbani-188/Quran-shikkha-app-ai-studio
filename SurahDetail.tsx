@@ -13,11 +13,13 @@ interface SurahDetailProps {
   initialVerseKey?: string;
   lastReadVerseKey?: string;
   onSetLastReadPosition: (verseKey: string) => void;
+  onMarkAyahAsRead: (verseKey: string) => void;
+  showMarkerTemporarily?: boolean;
 }
 
 const SurahDetail: React.FC<SurahDetailProps> = ({ 
   surah, onBack, bookmarks, onToggleBookmark, onLoad, initialVerseKey, 
-  lastReadVerseKey, onSetLastReadPosition 
+  lastReadVerseKey, onSetLastReadPosition, onMarkAyahAsRead, showMarkerTemporarily = false
 }) => {
   const [verses, setVerses] = useState<Verse[]>([]);
   const [tafsirs, setTafsirs] = useState<Record<string, string>>({});
@@ -69,7 +71,9 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
         // Debounce the save operation
         clearTimeout((window as any).positionSaveTimeout);
         (window as any).positionSaveTimeout = setTimeout(() => {
+          // Silent background tracking - no UI disruption
           onSetLastReadPosition(mostVisibleVerse);
+          onMarkAyahAsRead(mostVisibleVerse);
         }, 1500); // Save after 1.5 seconds of viewing
       }
     };
@@ -101,7 +105,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
       window.removeEventListener('beforeunload', handleBeforeUnload);
       clearTimeout((window as any).positionSaveTimeout);
     };
-  }, [verses, onSetLastReadPosition]);
+  }, [verses, onSetLastReadPosition, onMarkAyahAsRead]);
 
   useEffect(() => {
     onLoad(surah.id, lastReadVerseKey);
@@ -203,11 +207,11 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
     fetchData();
   }, [surah]);
 
-  // Handle auto-scroll to bookmark or last read position
+  // Handle auto-scroll to bookmark or continue reading (only for intentional navigation)
   useEffect(() => {
     if (!loading && verses.length > 0) {
-      // Priority: initialVerseKey (bookmark) > lastReadVerseKey (continue reading)
-      const targetVerseKey = initialVerseKey || lastReadVerseKey;
+      // Only auto-scroll for intentional navigation: bookmarks or explicit continue reading
+      const targetVerseKey = initialVerseKey;
       
       if (targetVerseKey) {
         setTimeout(() => {
@@ -215,25 +219,19 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
             if (element) {
               element.scrollIntoView({ behavior: 'smooth', block: 'center' });
               
-              // Different highlighting for bookmark vs last read
-              if (initialVerseKey) {
+              // Only highlight for bookmarks, not for continue reading
+              if (targetVerseKey !== lastReadVerseKey) {
                 // Bookmark highlight (yellow)
                 element.classList.add('bg-yellow-50', 'dark:bg-yellow-900/10');
                 setTimeout(() => {
                     element.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/10');
                 }, 2500);
-              } else if (lastReadVerseKey) {
-                // Last read highlight (purple)
-                element.classList.add('bg-purple-100', 'dark:bg-purple-900/20', 'ring-2', 'ring-purple-300', 'dark:ring-purple-700');
-                setTimeout(() => {
-                    element.classList.remove('bg-purple-100', 'dark:bg-purple-900/20', 'ring-2', 'ring-purple-300', 'dark:ring-purple-700');
-                }, 3000);
               }
             }
         }, 100);
       }
     }
-  }, [initialVerseKey, lastReadVerseKey, loading, verses]);
+  }, [initialVerseKey, loading, verses, lastReadVerseKey]);
 
   const filteredVerses = verses.filter(verse => {
     if (!searchQuery) return true;
@@ -340,14 +338,21 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
                   {!loading && verses.length > 0 && (
                     <div className="mt-2">
                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-bengali">পঠন অগ্রগতি:</span>
                         <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
                           <div 
-                            className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
-                            style={{width: `${(filteredVerses.length / surah.verses_count) * 100}%`}}
+                            className="bg-gradient-to-r from-emerald-500 to-teal-600 h-1.5 rounded-full transition-all duration-500" 
+                            style={{
+                              width: `${lastReadVerseKey && lastReadVerseKey.startsWith(`${surah.id}:`) 
+                                ? (parseInt(lastReadVerseKey.split(':')[1]) / surah.verses_count) * 100 
+                                : 0}%`
+                            }}
                           />
                         </div>
                         <span className="font-bengali">
-                          {filteredVerses.length} / {surah.verses_count}
+                          {lastReadVerseKey && lastReadVerseKey.startsWith(`${surah.id}:`) 
+                            ? lastReadVerseKey.split(':')[1] 
+                            : '0'} / {surah.verses_count}
                         </span>
                       </div>
                     </div>
@@ -482,6 +487,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({
                       autoPlayEnabled={autoPlayEnabled && currentPlayingVerse === verse.verse_key}
                       isLastRead={lastReadVerseKey === verse.verse_key}
                       onMarkAsLastRead={() => onSetLastReadPosition(verse.verse_key)}
+                      showMarkerTemporarily={showMarkerTemporarily}
                       onPlayStateChange={(isPlaying) => {
                         if (isPlaying) {
                           setCurrentPlayingVerse(verse.verse_key);

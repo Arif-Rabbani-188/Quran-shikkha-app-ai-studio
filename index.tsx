@@ -28,6 +28,7 @@ const App = () => {
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [initialVerseKey, setInitialVerseKey] = useState<string | undefined>(undefined);
+  const [showMarkerTemporarily, setShowMarkerTemporarily] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'quran' | 'learn' | 'bookmarks' | 'stats' | 'settings'>('quran');
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -35,7 +36,7 @@ const App = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
-  const { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition } = useProgress();
+  const { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition, markAyahAsRead } = useProgress();
 
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -216,6 +217,8 @@ const App = () => {
                     initialVerseKey={initialVerseKey}
                     lastReadVerseKey={progress.lastReadVerseKey}
                     onSetLastReadPosition={setLastReadPosition}
+                    onMarkAyahAsRead={markAyahAsRead}
+                    showMarkerTemporarily={showMarkerTemporarily}
                 />
             );
         }
@@ -225,6 +228,15 @@ const App = () => {
                   setSelectedSurah(s); 
                   setInitialVerseKey(verseKey); 
                   setView('detail');
+                  
+                  // Show marker temporarily if continuing from a specific verse
+                  if (verseKey && verseKey !== `${s.id}:1`) {
+                    setShowMarkerTemporarily(true);
+                    setTimeout(() => {
+                      setShowMarkerTemporarily(false);
+                    }, 3000); // Hide after 3 seconds
+                  }
+                  
                   // Auto-scroll to top when selecting a surah
                   setTimeout(() => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -282,7 +294,7 @@ const App = () => {
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold font-arabic">
                 ق
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent block md:block font-bengali">
+            <span className="text-2xl font-bold bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent block md:block font-bengali">
               কুরআন শিক্ষা
             </span>
           </div>
@@ -410,11 +422,6 @@ const App = () => {
           >
               <Bookmark size={22} />
               <span className="text-[10px] font-bold font-bengali">বুকমার্ক</span>
-              {progress.bookmarks.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                  {progress.bookmarks.length > 9 ? '9+' : progress.bookmarks.length}
-                </span>
-              )}
               {activeTab === 'bookmarks' && <div className="w-1 h-1 bg-yellow-600 dark:bg-yellow-400 rounded-full"></div>}
           </button>
           <button 
