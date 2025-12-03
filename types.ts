@@ -46,5 +46,6 @@ export interface UserProgress {
   completedLessons: string[]; 
   totalXP: number;
   lastReadSurahId?: number;
+  lastReadVerseKey?: string; // Track exact verse position for continue reading
   bookmarks: string[]; // verse_keys
 }

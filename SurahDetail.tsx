@@ -9,11 +9,16 @@ interface SurahDetailProps {
   onBack: () => void;
   bookmarks: string[];
   onToggleBookmark: (key: string) => void;
-  onLoad: (id: number) => void;
+  onLoad: (id: number, verseKey?: string) => void;
   initialVerseKey?: string;
+  lastReadVerseKey?: string;
+  onSetLastReadPosition: (verseKey: string) => void;
 }
 
-const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onToggleBookmark, onLoad, initialVerseKey }) => {
+const SurahDetail: React.FC<SurahDetailProps> = ({ 
+  surah, onBack, bookmarks, onToggleBookmark, onLoad, initialVerseKey, 
+  lastReadVerseKey, onSetLastReadPosition 
+}) => {
   const [verses, setVerses] = useState<Verse[]>([]);
   const [tafsirs, setTafsirs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -25,8 +30,83 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onT
   const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
 
+  // Scroll-based reading position tracking
   useEffect(() => {
-    onLoad(surah.id);
+    if (!verses.length) return;
+
+    const handleScroll = () => {
+      // Find the verse that's currently most visible in the viewport
+      const verseElements = verses.map(verse => 
+        document.getElementById(`verse-${verse.verse_key}`)
+      ).filter(Boolean);
+
+      let mostVisibleVerse: string | null = null;
+      let maxVisibilityRatio = 0;
+
+      verseElements.forEach(element => {
+        if (!element) return;
+        
+        const rect = element.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        
+        // Calculate how much of the verse is visible
+        const visibleTop = Math.max(0, rect.top);
+        const visibleBottom = Math.min(viewportHeight, rect.bottom);
+        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+        const elementHeight = rect.height;
+        
+        const visibilityRatio = visibleHeight / elementHeight;
+        
+        // Require at least 30% visibility and element to be in the upper half of viewport
+        if (visibilityRatio > maxVisibilityRatio && visibilityRatio > 0.3 && rect.top < viewportHeight * 0.6) {
+          maxVisibilityRatio = visibilityRatio;
+          mostVisibleVerse = element.id.replace('verse-', '');
+        }
+      });
+
+      // Auto-save reading position if a verse is clearly visible
+      if (mostVisibleVerse && maxVisibilityRatio > 0.5) {
+        // Debounce the save operation
+        clearTimeout((window as any).positionSaveTimeout);
+        (window as any).positionSaveTimeout = setTimeout(() => {
+          onSetLastReadPosition(mostVisibleVerse);
+        }, 1500); // Save after 1.5 seconds of viewing
+      }
+    };
+
+    const throttledScroll = (() => {
+      let ticking = false;
+      return () => {
+        if (!ticking) {
+          requestAnimationFrame(() => {
+            handleScroll();
+            ticking = false;
+          });
+          ticking = true;
+        }
+      };
+    })();
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+    
+    // Also save position when user navigates away
+    const handleBeforeUnload = () => {
+      handleScroll(); // Save current position immediately
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearTimeout((window as any).positionSaveTimeout);
+    };
+  }, [verses, onSetLastReadPosition]);
+
+  useEffect(() => {
+    onLoad(surah.id, lastReadVerseKey);
+    // Auto-scroll to top when opening or changing Surah
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [surah.id]);
 
   // Auto-close settings on scroll or outside click
@@ -123,21 +203,37 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onT
     fetchData();
   }, [surah]);
 
-  // Handle auto-scroll to bookmark
+  // Handle auto-scroll to bookmark or last read position
   useEffect(() => {
-    if (initialVerseKey && !loading && verses.length > 0) {
-      setTimeout(() => {
-          const element = document.getElementById(`verse-${initialVerseKey}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            element.classList.add('bg-yellow-50', 'dark:bg-yellow-900/10');
-            setTimeout(() => {
-                element.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/10');
-            }, 2500);
-          }
-      }, 100);
+    if (!loading && verses.length > 0) {
+      // Priority: initialVerseKey (bookmark) > lastReadVerseKey (continue reading)
+      const targetVerseKey = initialVerseKey || lastReadVerseKey;
+      
+      if (targetVerseKey) {
+        setTimeout(() => {
+            const element = document.getElementById(`verse-${targetVerseKey}`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              
+              // Different highlighting for bookmark vs last read
+              if (initialVerseKey) {
+                // Bookmark highlight (yellow)
+                element.classList.add('bg-yellow-50', 'dark:bg-yellow-900/10');
+                setTimeout(() => {
+                    element.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/10');
+                }, 2500);
+              } else if (lastReadVerseKey) {
+                // Last read highlight (purple)
+                element.classList.add('bg-purple-100', 'dark:bg-purple-900/20', 'ring-2', 'ring-purple-300', 'dark:ring-purple-700');
+                setTimeout(() => {
+                    element.classList.remove('bg-purple-100', 'dark:bg-purple-900/20', 'ring-2', 'ring-purple-300', 'dark:ring-purple-700');
+                }, 3000);
+              }
+            }
+        }, 100);
+      }
     }
-  }, [initialVerseKey, loading, verses]);
+  }, [initialVerseKey, lastReadVerseKey, loading, verses]);
 
   const filteredVerses = verses.filter(verse => {
     if (!searchQuery) return true;
@@ -384,6 +480,8 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onT
                       onToggleBookmark={() => onToggleBookmark(verse.verse_key)}
                       audioUrl={audioUrl}
                       autoPlayEnabled={autoPlayEnabled && currentPlayingVerse === verse.verse_key}
+                      isLastRead={lastReadVerseKey === verse.verse_key}
+                      onMarkAsLastRead={() => onSetLastReadPosition(verse.verse_key)}
                       onPlayStateChange={(isPlaying) => {
                         if (isPlaying) {
                           setCurrentPlayingVerse(verse.verse_key);

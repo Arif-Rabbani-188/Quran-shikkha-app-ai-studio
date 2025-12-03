@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, BookOpen, Bookmark, BookmarkCheck, Share2, Check } from 'lucide-react';
+import { Play, Pause, BookOpen, Bookmark, BookmarkCheck, Share2, Check, MapPin } from 'lucide-react';
 import { Verse } from './types';
 import { useAudio } from './hooks';
 
@@ -13,13 +13,18 @@ interface VerseItemProps {
   audioUrl?: string;
   autoPlayEnabled?: boolean;
   onPlayStateChange?: (isPlaying: boolean) => void;
+  isLastRead?: boolean;
+  onMarkAsLastRead?: () => void;
 }
 
 const toArabicNumerals = (n: number) => {
   return n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
 }
 
-const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookmarked, onToggleBookmark, id, audioUrl, autoPlayEnabled = false, onPlayStateChange }) => {
+const VerseItem: React.FC<VerseItemProps> = ({ 
+  verse, tafsir, fontSize, isBookmarked, onToggleBookmark, id, audioUrl, 
+  autoPlayEnabled = false, onPlayStateChange, isLastRead = false, onMarkAsLastRead 
+}) => {
   const verseKeyParts = verse.verse_key.split(':');
   const surahPad = String(verseKeyParts[0]).padStart(3, '0');
   const ayahPad = String(verseKeyParts[1]).padStart(3, '0');
@@ -100,7 +105,16 @@ English Translation: ${englishTranslationText}
   };
 
   return (
-    <div id={id} className="p-6 border-b border-gray-100 dark:border-slate-800 last:border-0 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-500">
+    <div id={id} className={`p-6 border-b border-gray-100 dark:border-slate-800 last:border-0 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors duration-500 relative ${
+      isLastRead ? 'bg-purple-50/50 dark:bg-purple-900/10 border-l-4 border-l-purple-500' : ''
+    }`}>
+      
+      {/* Last Read Badge */}
+      {isLastRead && (
+        <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+          <span className="font-bengali">পড়া অবস্থান</span>
+        </div>
+      )}
       {/* Top Row: Arabic Text & Controls */}
       <div className="flex flex-col-reverse md:flex-row justify-between items-start mb-6 gap-4">
         
@@ -160,6 +174,25 @@ English Translation: ${englishTranslationText}
             >
                 {copied ? <Check size={20} /> : <Share2 size={20} />}
             </button>
+
+            {onMarkAsLastRead && (
+              <button 
+                  onClick={() => {
+                    if (navigator.vibrate) navigator.vibrate(30);
+                    onMarkAsLastRead();
+                  }}
+                  className={`px-3 py-2 rounded-lg flex items-center justify-center transition-all duration-300 hover:shadow-md active:scale-95 ${
+                      isLastRead
+                      ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 ring-2 ring-purple-200 dark:ring-purple-800'
+                      : 'text-gray-600 dark:text-slate-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-slate-800 border border-gray-200 dark:border-slate-700'
+                  }`}
+                  title={isLastRead ? "বর্তমান অবস্থান চিহ্নিত" : "এখানে চিহ্ন দিন"}
+              >
+                  <span className={`text-xs font-bold font-bengali ${isLastRead ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-slate-500'}`}>
+                    {isLastRead ? 'চিহ্নিত' : 'চিহ্ন'}
+                  </span>
+              </button>
+            )}
           </div>
         </div>
         

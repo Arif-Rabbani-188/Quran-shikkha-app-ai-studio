@@ -237,7 +237,8 @@ export function useProgress() {
     completedLessons: [], 
     totalXP: 0,
     bookmarks: [],
-    lastReadSurahId: undefined
+    lastReadSurahId: undefined,
+    lastReadVerseKey: undefined
   });
 
   useEffect(() => {
@@ -246,6 +247,7 @@ export function useProgress() {
       const parsed = JSON.parse(saved);
       // Ensure new fields exist for legacy data
       if (!parsed.bookmarks) parsed.bookmarks = [];
+      if (!parsed.lastReadVerseKey) parsed.lastReadVerseKey = undefined;
       setProgress(parsed);
     }
   }, []);
@@ -276,9 +278,22 @@ export function useProgress() {
     saveProgress({ ...progress, bookmarks: newBookmarks });
   };
 
-  const setLastRead = (surahId: number) => {
-    saveProgress({ ...progress, lastReadSurahId: surahId });
+  const setLastRead = (surahId: number, verseKey?: string) => {
+    saveProgress({ 
+      ...progress, 
+      lastReadSurahId: surahId,
+      lastReadVerseKey: verseKey || progress.lastReadVerseKey
+    });
   };
 
-  return { progress, completeLesson, toggleBookmark, setLastRead };
+  const setLastReadPosition = (verseKey: string) => {
+    const [surahId] = verseKey.split(':').map(Number);
+    saveProgress({ 
+      ...progress, 
+      lastReadSurahId: surahId,
+      lastReadVerseKey: verseKey
+    });
+  };
+
+  return { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition };
 }

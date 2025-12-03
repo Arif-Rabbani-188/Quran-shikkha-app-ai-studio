@@ -35,7 +35,7 @@ const App = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
-  const { progress, completeLesson, toggleBookmark, setLastRead } = useProgress();
+  const { progress, completeLesson, toggleBookmark, setLastRead, setLastReadPosition } = useProgress();
 
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -87,6 +87,11 @@ const App = () => {
     if (tab === 'bookmarks') setView('bookmarks');
     if (tab === 'stats') setView('statistics');
     if (tab === 'settings') setView('settings');
+    
+    // Auto-scroll to top when switching tabs
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
   };
 
   const openGoalsView = () => {
@@ -103,6 +108,11 @@ const App = () => {
             setInitialVerseKey(verseKey);
             setActiveTab('quran');
             setView('detail');
+            
+            // Auto-scroll to top when navigating to bookmark
+            setTimeout(() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
         }
     }
   };
@@ -193,18 +203,35 @@ const App = () => {
             return (
                 <SurahDetail 
                     surah={selectedSurah} 
-                    onBack={() => setView('list')}
+                    onBack={() => {
+                      setView('list');
+                      // Auto-scroll to top when going back to list
+                      setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }, 100);
+                    }}
                     bookmarks={progress.bookmarks}
                     onToggleBookmark={toggleBookmark}
                     onLoad={setLastRead}
                     initialVerseKey={initialVerseKey}
+                    lastReadVerseKey={progress.lastReadVerseKey}
+                    onSetLastReadPosition={setLastReadPosition}
                 />
             );
         }
         return (
             <SurahList 
-                onSelect={(s) => { setSelectedSurah(s); setInitialVerseKey(undefined); setView('detail'); }} 
+                onSelect={(s, verseKey) => { 
+                  setSelectedSurah(s); 
+                  setInitialVerseKey(verseKey); 
+                  setView('detail');
+                  // Auto-scroll to top when selecting a surah
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }, 100);
+                }} 
                 lastReadSurahId={progress.lastReadSurahId}
+                lastReadVerseKey={progress.lastReadVerseKey}
             />
         );
     } else {
@@ -215,7 +242,13 @@ const App = () => {
             return (
                 <LessonView 
                     lesson={selectedLesson} 
-                    onBack={() => setView('learn_list')} 
+                    onBack={() => {
+                      setView('learn_list');
+                      // Auto-scroll to top when going back to lesson list
+                      setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }, 100);
+                    }} 
                     onComplete={() => completeLesson(selectedLesson.id, selectedLesson.xp)}
                     isCompleted={progress.completedLessons.includes(selectedLesson.id)}
                     onNext={next ? () => setSelectedLesson(next) : undefined}
@@ -225,7 +258,14 @@ const App = () => {
                 />
             );
         }
-        return <LearningDashboard onSelectLesson={(l) => { setSelectedLesson(l); setView('learn_detail'); }} progress={progress} />;
+        return <LearningDashboard onSelectLesson={(l) => { 
+          setSelectedLesson(l); 
+          setView('learn_detail');
+          // Auto-scroll to top when selecting a lesson
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
+        }} progress={progress} />;
     }
   };
 

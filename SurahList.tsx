@@ -3,14 +3,20 @@ import { Search, BookOpen, Clock } from 'lucide-react';
 import { Surah } from './types';
 
 interface SurahListProps {
-  onSelect: (s: Surah) => void;
+  onSelect: (s: Surah, verseKey?: string) => void;
   lastReadSurahId?: number;
+  lastReadVerseKey?: string;
 }
 
-const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
+const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId, lastReadVerseKey }) => {
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Auto-scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     const fetchSurahs = async () => {
@@ -59,7 +65,7 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {lastReadSurah && (
           <div 
-            onClick={() => onSelect(lastReadSurah)}
+            onClick={() => onSelect(lastReadSurah, lastReadVerseKey)}
             className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white cursor-pointer transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl col-span-1 md:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold font-bengali">পড়া চালিয়ে যান</h3>
@@ -67,6 +73,22 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
             </div>
             <p className="font-arabic text-xl mb-2">{lastReadSurah.name_arabic}</p>
             <p className="text-emerald-100 font-bengali">{lastReadSurah.translated_name.name}</p>
+            
+            {/* Last Read Position Info */}
+            {lastReadVerseKey && (
+              <div className="mt-3 bg-white/10 rounded-lg p-3 border border-white/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-100 font-bengali">শেষ পড়া স্থান:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      আয়াত {lastReadVerseKey.split(':')[1]}
+                    </span>
+                    <span className="text-xs text-emerald-100 font-bengali">থেকে চালিয়ে যান</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="mt-4 bg-white/20 rounded-full h-2">
               <div 
                 className="bg-white rounded-full h-2 transition-all duration-500" 
@@ -78,7 +100,7 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
         )}
         
         {/* Reading Stats Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-200 dark:border-slate-800 shadow-sm">
+        {/* <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-200 dark:border-slate-800 shadow-sm">
           <div className="text-center">
             <div className="text-2xl mb-2">📊</div>
             <h3 className="font-bold text-gray-800 dark:text-white font-bengali mb-2">পড়ার পরিসংখ্যান</h3>
@@ -87,13 +109,13 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
               <p>{totalSurahs - readSurahs} টি বাকি</p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Continue Reading Section (legacy support) */}
       {lastReadSurah && !search && (
           <div 
-            onClick={() => onSelect(lastReadSurah)}
+            onClick={() => onSelect(lastReadSurah, lastReadVerseKey)}
             className="hidden bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 mb-6 text-white cursor-pointer transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
           >
               <div className="absolute top-0 right-0 p-6 opacity-10">
@@ -142,8 +164,8 @@ const SurahList: React.FC<SurahListProps> = ({ onSelect, lastReadSurahId }) => {
                     <span className="-rotate-45 group-hover:rotate-0 transition-transform duration-300">{surah.id}</span>
                 </div>
                 <div>
-                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-teal-400 transition-colors font-bengali">{surah.translated_name.name}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{surah.name_simple}</p>
+                    <h3 className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 dark:group-hover:text-teal-400 transition-colors font-bengali">{surah.name_simple}</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{surah.translated_name.name}</p>
                 </div>
               </div>
               <div className="text-right">

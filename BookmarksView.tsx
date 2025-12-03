@@ -11,6 +11,11 @@ interface BookmarksViewProps {
 const BookmarksView: React.FC<BookmarksViewProps> = ({ bookmarks, onSelect }) => {
   const [surahs, setSurahs] = useState<Surah[]>([]);
 
+  // Auto-scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
     const cached = localStorage.getItem('quran_chapters_bn');
     if (cached) {

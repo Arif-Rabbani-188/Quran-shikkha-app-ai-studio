@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, Star, Award, BookOpen, CheckCircle, Play, HelpCircle, ArrowRight, Lock, AlertCircle, Target } from 'lucide-react';
 import { Lesson, UserProgress } from './types';
 import { LEARNING_MODULES } from './data';
@@ -10,6 +10,11 @@ interface LearningDashboardProps {
 
 const LearningDashboard: React.FC<LearningDashboardProps> = ({ onSelectLesson, progress }) => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Auto-scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Flatten all lessons to determine global order
   const allLessons = LEARNING_MODULES.flatMap(m => m.lessons);
