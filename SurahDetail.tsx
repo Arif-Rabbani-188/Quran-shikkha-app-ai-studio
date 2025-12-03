@@ -25,23 +25,69 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onT
     onLoad(surah.id);
   }, [surah.id]);
 
+  // Auto-close settings on scroll or outside click
+  useEffect(() => {
+    if (!showSettings) return;
+
+    const handleScroll = () => {
+      setShowSettings(false);
+    };
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Element;
+      const settingsButton = document.querySelector('[title="Settings"]');
+      const settingsPanel = document.querySelector('.settings-panel');
+      
+      if (settingsButton && settingsPanel && 
+          !settingsButton.contains(target) && 
+          !settingsPanel.contains(target)) {
+        setShowSettings(false);
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showSettings]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Bumped cache key to v5 to fetch new translation data (transliteration)
-        const cacheKey = `surah_${surah.id}_details_v5`;
+        // Clear old cache versions to ensure fresh data
+        ['v1', 'v2', 'v3', 'v4', 'v5'].forEach(version => {
+          localStorage.removeItem(`surah_${surah.id}_details_${version}`);
+        });
+
+        // Bumped cache key to v6 to fetch fresh transliteration data
+        const cacheKey = `surah_${surah.id}_details_v6`;
         const cached = localStorage.getItem(cacheKey);
 
         if (cached) {
            const parsed = JSON.parse(cached);
-           setVerses(parsed.verses);
-           setTafsirs(parsed.tafsirs);
-           setLoading(false);
+           // Verify that we have all required translation data
+           const hasRequiredData = parsed.verses.some(v => 
+             v.translations.some(t => t.resource_id === 131) &&
+             v.translations.some(t => t.resource_id === 161) &&
+             v.translations.some(t => t.resource_id === 20)
+           );
+           if (hasRequiredData) {
+             setVerses(parsed.verses);
+             setTafsirs(parsed.tafsirs);
+             setLoading(false);
+             return;
+           }
         }
 
-        // Fetching 161 (Bengali) and 131 (Transliteration)
-        const versesRes = await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surah.id}?language=bn&words=false&translations=161,131&fields=text_uthmani&per_page=${surah.verses_count}`);
+        // Fetching 161 (Bengali), 131 (Transliteration), and 20 (English - Sahih International)
+        const versesRes = await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surah.id}?language=bn&words=false&translations=161,131,20&fields=text_uthmani&per_page=${surah.verses_count}`);
         const versesData = await versesRes.json();
 
         const tafsirRes = await fetch(`https://api.quran.com/api/v4/quran/tafsirs/166?chapter_number=${surah.id}`);
@@ -138,7 +184,7 @@ const SurahDetail: React.FC<SurahDetailProps> = ({ surah, onBack, bookmarks, onT
                         <Type size={20} />
                     </button>
                     {showSettings && (
-                        <div className="absolute right-0 top-full mt-3 bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-800 w-64 animate-fade-in z-30">
+                        <div className="absolute right-0 top-full mt-3 bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-800 w-64 animate-fade-in z-30 settings-panel">
                             <div className="flex items-center justify-between mb-3">
                                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">আরবী ফন্ট সাইজ</span>
                                  <span className="text-sm font-mono text-emerald-600 dark:text-emerald-400">{fontSize}px</span>

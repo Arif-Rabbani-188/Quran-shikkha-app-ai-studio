@@ -43,54 +43,116 @@ export const playPronunciation = (text: string, audioText?: string) => {
 
 // --- Custom Hooks ---
 
+// Global audio manager to ensure only one audio plays at a time
+class GlobalAudioManager {
+  private currentAudio: HTMLAudioElement | null = null;
+  private currentUrl: string | null = null;
+  private listeners: Set<(isPlaying: boolean, url: string | null) => void> = new Set();
+
+  addListener(callback: (isPlaying: boolean, url: string | null) => void) {
+    this.listeners.add(callback);
+  }
+
+  removeListener(callback: (isPlaying: boolean, url: string | null) => void) {
+    this.listeners.delete(callback);
+  }
+
+  private notifyListeners(isPlaying: boolean, url: string | null) {
+    this.listeners.forEach(callback => callback(isPlaying, url));
+  }
+
+  play(url: string): Promise<void> {
+    // Stop current audio if playing
+    if (this.currentAudio && !this.currentAudio.paused) {
+      this.currentAudio.pause();
+    }
+
+    // If same audio, don't recreate
+    if (this.currentUrl === url && this.currentAudio) {
+      const playPromise = this.currentAudio.play();
+      this.notifyListeners(true, url);
+      return playPromise || Promise.resolve();
+    }
+
+    // Create new audio
+    const audio = new Audio(url);
+    this.currentAudio = audio;
+    this.currentUrl = url;
+
+    audio.addEventListener('ended', () => {
+      this.notifyListeners(false, null);
+    });
+
+    audio.addEventListener('pause', () => {
+      this.notifyListeners(false, this.currentUrl);
+    });
+
+    audio.addEventListener('play', () => {
+      this.notifyListeners(true, this.currentUrl);
+    });
+
+    audio.addEventListener('error', () => {
+      this.notifyListeners(false, null);
+    });
+
+    const playPromise = audio.play();
+    this.notifyListeners(true, url);
+    return playPromise || Promise.resolve();
+  }
+
+  pause() {
+    if (this.currentAudio && !this.currentAudio.paused) {
+      this.currentAudio.pause();
+    }
+  }
+
+  isPlaying(url: string): boolean {
+    return this.currentUrl === url && this.currentAudio && !this.currentAudio.paused;
+  }
+}
+
+const globalAudioManager = new GlobalAudioManager();
+
+// --- Custom Hooks ---
+
 export function useAudio(url: string | undefined) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setError(null);
-    setIsPlaying(false);
+    if (!url) return;
 
-    if (url) {
-      const audio = new Audio(url);
-      
-      audio.addEventListener('ended', () => setIsPlaying(false));
-      audio.addEventListener('pause', () => setIsPlaying(false));
-      audio.addEventListener('play', () => setIsPlaying(true));
-      audio.addEventListener('error', (e) => {
-         console.error("Audio playback error:", e);
-         setIsPlaying(false);
-         setError("Failed to load audio.");
-      });
-
-      audioRef.current = audio;
-    }
-    
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+    const handleAudioChange = (playing: boolean, playingUrl: string | null) => {
+      if (url === playingUrl) {
+        setIsPlaying(playing);
+        setError(null);
+      } else if (playing && playingUrl !== url) {
+        // Another audio is playing
+        setIsPlaying(false);
       }
+    };
+
+    globalAudioManager.addListener(handleAudioChange);
+    
+    // Check initial state
+    setIsPlaying(globalAudioManager.isPlaying(url));
+
+    return () => {
+      globalAudioManager.removeListener(handleAudioChange);
     };
   }, [url]);
 
-  const toggle = () => {
-    if (!audioRef.current || error) return;
+  const toggle = async () => {
+    if (!url) return;
 
     if (isPlaying) {
-      audioRef.current.pause();
+      globalAudioManager.pause();
     } else {
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(e => {
-            console.error("Play promise error:", e);
-            setError("Playback failed.");
-        });
+      try {
+        await globalAudioManager.play(url);
+      } catch (e) {
+        console.error("Audio playback error:", e);
+        setError("Failed to load audio.");
       }
     }
   };

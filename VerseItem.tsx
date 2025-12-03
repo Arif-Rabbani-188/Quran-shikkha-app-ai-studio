@@ -28,8 +28,9 @@ const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookma
   const [showTafsir, setShowTafsir] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Extract Translation (Bengali - 161) and Transliteration (131)
+  // Extract Translation (Bengali - 161), Transliteration (131), and English (20)
   const translationText = verse.translations.find(t => t.resource_id === 161)?.text.replace(/<[^>]*>?/gm, '') || "অনুবাদ উপলব্ধ নেই";
+  const englishTranslationText = verse.translations.find(t => t.resource_id === 20)?.text.replace(/<[^>]*>?/gm, '') || "Translation not available";
   const transliterationText = verse.translations.find(t => t.resource_id === 131)?.text.replace(/<[^>]*>?/gm, '') || "";
 
   const createMarkup = (html: string) => {
@@ -41,8 +42,8 @@ const VerseItem: React.FC<VerseItemProps> = ({ verse, tafsir, fontSize, isBookma
 ${verse.text_uthmani}
 (সূরা ${verseKeyParts[0]}, আয়াত ${verseKeyParts[1]})
 
-উচ্চারণ: ${transliterationText}
-অনুবাদ: ${translationText}
+বাংলা অনুবাদ: ${translationText}
+English Translation: ${englishTranslationText}
 
 - QuranShikha থেকে শেয়ার করা
     `.trim();
@@ -134,16 +135,24 @@ ${verse.text_uthmani}
 
       {/* Translations & Tafsir Section */}
       <div className="pl-0 md:pl-14 space-y-4">
-        {/* Transliteration (Pronunciation) */}
+        {/* Transliteration (Pronunciation) - Bangla Uccharon */}
         {transliterationText && (
-            <p className="text-gray-500 dark:text-gray-400 text-sm italic mb-2 font-sans border-l-2 border-gray-200 dark:border-slate-700 pl-4 py-1">
-                {transliterationText}
-            </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4 mb-3">
+                <h5 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2 font-bengali">উচ্চারণ (বাংলা)</h5>
+                <p className="text-gray-700 dark:text-gray-300 font-bengali text-base leading-relaxed">
+                    {transliterationText}
+                </p>
+            </div>
         )}
 
-        {/* Translation */}
+        {/* Bengali Translation */}
         <p className="text-gray-800 dark:text-gray-200 font-bengali text-lg leading-relaxed border-l-4 border-emerald-100 dark:border-emerald-900/50 pl-4 py-1">
            {translationText}
+        </p>
+
+        {/* English Translation */}
+        <p className="text-gray-700 dark:text-gray-300 text-base leading-relaxed border-l-4 border-blue-100 dark:border-blue-900/50 pl-4 py-1 mt-3 italic">
+           {englishTranslationText}
         </p>
 
         <div className="flex items-center gap-3 pt-2">
