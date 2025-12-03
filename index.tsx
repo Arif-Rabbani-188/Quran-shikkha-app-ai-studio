@@ -12,6 +12,10 @@ import SurahDetail from './SurahDetail';
 import LearningDashboard from './LearningDashboard';
 import LessonView from './LessonView';
 import BookmarksView from './BookmarksView';
+import InstallPWA from './InstallPWA';
+import OnlineStatus from './OnlineStatus';
+import UpdateNotification from './UpdateNotification';
+import PWAStatus from './PWAStatus';
 
 const App = () => {
   const [view, setView] = useState<'list' | 'detail' | 'learn_list' | 'learn_detail' | 'bookmarks'>('list');
@@ -125,6 +129,10 @@ const App = () => {
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300 font-sans`}>
+      {/* PWA Components */}
+      <OnlineStatus />
+      {/* <PWAStatus /> */}
+      
       {/* Navbar */}
       <nav className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-200 dark:border-slate-800 sticky top-0 z-30">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -132,12 +140,12 @@ const App = () => {
             <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold font-arabic">
                 ق
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent hidden md:block font-bengali">
+            <span className="text-xl font-bold bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-transparent block md:block font-bengali">
               কুরআন শিক্ষা
             </span>
           </div>
 
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-full md:hidden">
+          {/* <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-full md:hidden">
               <button 
                 onClick={() => switchTab('quran')}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'quran' ? 'bg-white dark:bg-slate-700 shadow text-emerald-700 dark:text-emerald-400' : 'text-gray-500'}`}
@@ -156,7 +164,7 @@ const App = () => {
               >
                   বুকমার্ক
               </button>
-          </div>
+          </div> */}
 
           <div className="hidden md:flex gap-6 mr-auto ml-12">
             <button 
@@ -219,6 +227,12 @@ const App = () => {
             <span className="text-[10px] font-bold">বুকমার্ক</span>
         </button>
       </div>
+      
+      {/* PWA Install Prompt */}
+      <InstallPWA />
+      
+      {/* PWA Update Notification */}
+      <UpdateNotification />
     </div>
   );
 };

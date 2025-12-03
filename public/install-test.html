@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Installation Tester</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffc107;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #dc3545;
+        }
+        .install-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .install-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 PWA Installation Debug Tool</h1>
+    <p>This page helps diagnose PWA installation issues.</p>
+    
+    <div id="results"></div>
+    
+    <div style="margin-top: 30px;">
+        <button id="installBtn" class="install-btn" disabled>Install PWA</button>
+        <button id="testBtn" class="install-btn">Run Tests Again</button>
+    </div>
+    
+    <script>
+        let deferredPrompt = null;
+        const results = document.getElementById('results');
+        const installBtn = document.getElementById('installBtn');
+        const testBtn = document.getElementById('testBtn');
+        
+        function addResult(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            results.innerHTML = '';
+        }
+        
+        function runPWATests() {
+            clearResults();
+            
+            addResult('<h3>🔍 PWA Installation Requirements Check</h3>');
+            
+            // 1. HTTPS Check
+            if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                addResult('✅ HTTPS/Localhost: Required for PWA installation');
+            } else {
+                addResult('❌ HTTPS Required: PWAs need HTTPS in production', 'error');
+            }
+            
+            // 2. Service Worker Check
+            if ('serviceWorker' in navigator) {
+                addResult('✅ Service Worker Support: Browser supports service workers');
+                
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    addResult('✅ Service Worker: Successfully registered');
+                    addResult(`📍 SW Scope: ${registration.scope}`);
+                    addResult(`🔄 SW State: ${registration.active ? registration.active.state : 'Installing...'}`);
+                }).catch(error => {
+                    addResult(`❌ Service Worker Registration Failed: ${error.message}`, 'error');
+                });
+                
+            } else {
+                addResult('❌ Service Worker: Not supported in this browser', 'error');
+            }
+            
+            // 3. Manifest Check
+            fetch('/manifest.webmanifest')
+                .then(response => response.json())
+                .then(manifest => {
+                    addResult('✅ Web App Manifest: Successfully loaded');
+                    addResult(`📱 App Name: ${manifest.name}`);
+                    addResult(`🏠 Start URL: ${manifest.start_url}`);
+                    addResult(`📺 Display Mode: ${manifest.display}`);
+                    addResult(`🎨 Theme Color: ${manifest.theme_color}`);
+                    addResult(`🖼️ Icons: ${manifest.icons ? manifest.icons.length : 0} found`);
+                    
+                    // Check required fields
+                    const required = ['name', 'short_name', 'start_url', 'display', 'icons'];
+                    const missing = required.filter(field => !manifest[field]);
+                    
+                    if (missing.length === 0) {
+                        addResult('✅ Manifest Fields: All required fields present');
+                    } else {
+                        addResult(`❌ Missing Manifest Fields: ${missing.join(', ')}`, 'error');
+                    }
+                    
+                    // Test icon loading
+                    if (manifest.icons && manifest.icons.length > 0) {
+                        const testIcon = manifest.icons.find(icon => icon.sizes === '192x192') || manifest.icons[0];
+                        const img = new Image();
+                        img.onload = () => addResult('✅ Icon Loading: Icons are accessible');
+                        img.onerror = () => addResult('❌ Icon Loading: Failed to load icons', 'error');
+                        img.src = testIcon.src;
+                    }
+                })
+                .catch(error => {
+                    addResult(`❌ Manifest Loading Failed: ${error.message}`, 'error');
+                });
+            
+            // 4. Install Prompt Check
+            addResult('🔄 Install Prompt: Waiting for beforeinstallprompt event...');
+            
+            // 5. Browser Compatibility
+            const userAgent = navigator.userAgent;
+            if (userAgent.includes('Chrome')) {
+                addResult('✅ Browser: Chrome supports PWA installation');
+            } else if (userAgent.includes('Firefox')) {
+                addResult('⚠️ Browser: Firefox has limited PWA support', 'warning');
+            } else if (userAgent.includes('Safari')) {
+                if (userAgent.includes('iPhone') || userAgent.includes('iPad')) {
+                    addResult('ℹ️ Browser: iOS Safari - Use "Add to Home Screen" from share menu', 'warning');
+                } else {
+                    addResult('⚠️ Browser: Safari has limited PWA support', 'warning');
+                }
+            } else {
+                addResult('⚠️ Browser: Unknown browser, PWA support may vary', 'warning');
+            }
+            
+            // 6. Installation Status
+            if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+                addResult('✅ Installation: App is currently running in standalone mode', 'success');
+            } else {
+                addResult('ℹ️ Installation: App is running in browser mode', 'warning');
+            }
+            
+            // 7. Local Storage Check
+            try {
+                localStorage.setItem('pwa-test', 'test');
+                localStorage.removeItem('pwa-test');
+                addResult('✅ Storage: Local storage is available');
+            } catch {
+                addResult('❌ Storage: Local storage not available', 'error');
+            }
+            
+            addResult('<h3>📋 Quick Fix Checklist</h3>');
+            addResult('1. Ensure all icon files exist in <span class="code">/public/icons/</span>');
+            addResult('2. Verify manifest.webmanifest is accessible');
+            addResult('3. Check service worker registration in DevTools');
+            addResult('4. Test on HTTPS domain (not HTTP)');
+            addResult('5. Wait 10-15 seconds for install prompt');
+            addResult('6. Clear browser cache if issues persist');
+        }
+        
+        // Install prompt handling
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.disabled = false;
+            addResult('✅ Install Prompt: Available! Click the install button below.');
+        });
+        
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) {
+                addResult('❌ No install prompt available. Try the browser menu or address bar install option.', 'error');
+                return;
+            }
+            
+            try {
+                await deferredPrompt.prompt();
+                const choiceResult = await deferredPrompt.userChoice;
+                addResult(`📱 Installation ${choiceResult.outcome}: User ${choiceResult.outcome} the install prompt`);
+                
+                if (choiceResult.outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                
+                deferredPrompt = null;
+                installBtn.disabled = true;
+            } catch (error) {
+                addResult(`❌ Installation Error: ${error.message}`, 'error');
+            }
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            addResult('🎉 Installation Success: App has been installed!', 'success');
+            installBtn.style.display = 'none';
+        });
+        
+        testBtn.addEventListener('click', runPWATests);
+        
+        // Run tests on page load
+        setTimeout(runPWATests, 500);
+    </script>
+</body>
+</html>
